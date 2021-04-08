@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>TextDeck</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        #edit-area {
+            width: 100%
+        }
+    </style>
+    <link rel="stylesheet" href="./node_modules/bulma/css/bulma.css">
+</head>
+<body id="body" style="background: white;">
+    <section class="section">
+        <div id="edit-div" style="display:none;">
+            <textarea id="edit-area" class="textarea"></textarea>
+            <div>
+                <button id="cancel-edit">Cancel</button>
+                <button id="submit-edit">Submit</button>
+            </div>
+        </div>
+        <div id="content-root" class="content">
+            HelloWorld
+        </div>
+            
+    </section>
+</body>
+</html>
