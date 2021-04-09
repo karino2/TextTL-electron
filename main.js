@@ -31,7 +31,6 @@ app.on('window-all-closed', () => {
 })
 
 const openPath = async (filePath, sender) => {
-    console.log(filePath)
     app.addRecentDocument(filePath)
     g_currentPath = filePath
     store.set('last-path', filePath)
