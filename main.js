@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs/promises')
 const {encode} = require('html-entities')
 const Store = require('electron-store')
+const dateFormat = require('dateformat')
 
 const store = new Store()
 
@@ -36,7 +37,7 @@ const openPath = async (filePath, sender) => {
     store.set('last-path', filePath)
     const cont = await fs.readFile( filePath )
     g_srcLines = cont.toString().split('\n')
-    updateText(g_srcLines, sender)
+    updateText(g_srcLines, sender, true)
 }
 
 
@@ -79,6 +80,11 @@ const linesToParas = (lines) => {
             curlines.push(encode(line))
         }
     }
+    if (curlines.length != 0)
+    {
+        paras.push( new Paragraph(begin, lines.length, curlines.join('<br>\n')))
+    }
+
     return paras
 }
 
@@ -92,10 +98,10 @@ const paras2html = (paras) => {
     return paras.map( p => para2html(p) ).join("\n")
 }
 
-const updateText = (lines, targetWin) => {
+const updateText = (lines, targetWin, scroll) => {
     const paras = linesToParas(lines)
     const html = paras2html(paras)
-    targetWin.send('update-content', html)    
+    targetWin.send('update-content', html, scroll)
 }
 
 const g_pendingFile = []
@@ -143,7 +149,20 @@ ipcMain.on('submit', async (event, text, [start, end])=>{
     }
     const src = g_srcLines.join('\n')
     await fs.writeFile(g_currentPath, src)
-    updateText(g_srcLines, event.sender)
+    updateText(g_srcLines, event.sender, false)
+})
+
+ipcMain.on('post', async (event, text)=> {
+    const now = new Date()
+    const dtline = dateFormat(now, 'yyyy-mm-dd HH:MM')
+    g_srcLines.push("")
+    g_srcLines.push(dtline)
+    g_srcLines.push(text)
+
+    const src = g_srcLines.join('\n')
+    await fs.writeFile(g_currentPath, src)
+    updateText(g_srcLines, event.sender, true)
+    event.sender.send('clear-post')
 })
 
 const isMac = process.platform === 'darwin'
