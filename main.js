@@ -1,4 +1,4 @@
-const { ipcMain, dialog, app, BrowserWindow, screen, globalShortcut, Menu } = require('electron')
+const { ipcMain, dialog, app, BrowserWindow, screen, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs/promises')
 const {encode} = require('html-entities')
