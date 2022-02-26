@@ -154,7 +154,9 @@ ipcMain.on('submit', async (event, text, [start, end])=>{
 ipcMain.on('post', async (event, text)=> {
     const now = new Date()
     const dtline = dateFormat(now, 'yyyy-mm-dd HH:MM')
-    g_srcLines.push("")
+    if(g_srcLines.length > 1 && g_srcLines[g_srcLines.length-1] != "") {
+        g_srcLines.push("")
+    }
     g_srcLines.push(dtline)
     g_srcLines.push(text)
 
