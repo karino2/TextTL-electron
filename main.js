@@ -158,7 +158,7 @@ ipcMain.on('post', async (event, text)=> {
         g_srcLines.push("")
     }
     g_srcLines.push(dtline)
-    g_srcLines.push(text)
+    text.split('\n').forEach(line => g_srcLines.push(line))
 
     const src = g_srcLines.join('\n')
     await fs.writeFile(g_currentPath, src)
