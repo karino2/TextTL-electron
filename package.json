@@ -1,6 +1,6 @@
 {
-  "name": "electron-textdeck",
-  "version": "0.2.1",
+  "name": "texttl-electron",
+  "version": "0.0.1",
   "description": "",
   "main": "main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "icon-make": "./node_modules/.bin/electron-icon-builder --flatten --input=./misc/icon_original.png --output=./misc",
-    "deploy": "cp -r out/TextDeck-darwin-x64/TextDeck.app /Applications"
+    "deploy": "cp -r out/TextTL-darwin-x64/TextTL.app /Applications"
   },
   "keywords": [],
   "author": "",
@@ -19,7 +19,7 @@
     "@electron-forge/maker-rpm": "^6.0.0-beta.54",
     "@electron-forge/maker-squirrel": "^6.0.0-beta.54",
     "@electron-forge/maker-zip": "^6.0.0-beta.54",
-    "electron": "^12.0.2",
+    "electron": "^22.0.3",
     "electron-icon-builder": "^2.0.1"
   },
   "dependencies": {
@@ -32,7 +32,7 @@
   "config": {
     "forge": {
       "packagerConfig": {
-        "name": "TextDeck",
+        "name": "TextTL",
         "icon": "misc/icons/icon",
         "extendInfo": {
           "CFBundleDocumentTypes": [
@@ -43,13 +43,13 @@
               "LSHandlerRank": "Alternate"
             }
           ]
-        }  
+        }
       },
       "makers": [
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "electron_textdeck"
+            "name": "texttl_electron"
           }
         },
         {
