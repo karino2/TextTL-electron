@@ -3,4 +3,4 @@ TextTL, electron version.
 
 ## Screen shots
 
-![TextTL screenshot](https://github.com/karino2/TextTL/raw/main/misc/screenshots/screenshot01.png)
+![TextTL screenshot](https://github.com/karino2/TextTL-electron/raw/main/misc/screenshots/screenshot01.png)
