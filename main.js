@@ -9,11 +9,6 @@ const store = new Store()
 // const g_ITEM_LIMIT = 5
 const g_ITEM_LIMIT = 30
 
-// そのうち消す
-let g_srcLines = [];
-let g_currentPath = '';
-
-
 const createWindow = async () => {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize
     const win = new BrowserWindow({
@@ -160,27 +155,6 @@ const updateText = (contents, targetWin, scroll) => {
     const html = contents2html(contents)
     targetWin.send('update-content', html, scroll)
 }
-
-ipcMain.on('box-click', async (event, start, end)=> {
-    // NYI
-    const src = g_srcLines.slice(start, end).join("\n")
-    event.sender.send('start-edit', src, start, end)
-})
-ipcMain.on('submit', async (event, text, [start, end])=>{
-    // NYI
-    const prev = g_srcLines
-    g_srcLines = []
-    for( let i = 0; i < start; i++) {
-        g_srcLines[i] = prev[i]
-    }
-    text.split('\n').forEach(line => g_srcLines.push(line))
-    for(let i = end; i < prev.length; i++) {
-        g_srcLines.push(prev[i])
-    }
-    const src = g_srcLines.join('\n')
-    await fs.writeFile(g_currentPath, src)
-    updateText(g_srcLines, event.sender, false)
-})
 
 const zeroPad = (num) => {
     if (num >= 10)
