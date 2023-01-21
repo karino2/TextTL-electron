@@ -108,9 +108,10 @@ const readFilePaths = async(dirPath, count) => {
 
 const loadDir = async (dirPath, sender) => {
     const paths = await readFilePaths(dirPath, g_ITEM_LIMIT)
-    paths.reverse()
+    const limited = paths.length <= g_ITEM_LIMIT ? paths : paths.slice(0, g_ITEM_LIMIT)
+    limited.reverse()
     let contents = await Promise.all(
-        paths
+        limited
         .map( async pathpair => {
             const date = new Date(parseInt(pathpair.fname.substring(0, pathpair.fname.length - 4)))
             const content = await fs.readFile(pathpair.fullPath)
