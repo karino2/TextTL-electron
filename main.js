@@ -3,15 +3,15 @@ const path = require('path')
 const fs = require('fs/promises')
 const {encode} = require('html-entities')
 const Store = require('electron-store')
-const dateFormat = require('dateformat')
 
 const store = new Store()
 
+// そのうち消す
 let g_srcLines = [];
 let g_currentPath = '';
 
 
-function createWindow () {
+const createWindow = async () => {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize
     const win = new BrowserWindow({
       width: width,
@@ -22,6 +22,17 @@ function createWindow () {
     })
   
     win.loadFile('index.html')
+
+    const rootPath = store.get('root-path')
+    if (rootPath == null) {
+        await openDirDialog((dir)=>{
+            loadDir(dir, win)
+        })
+    }
+    else
+    {
+        await loadDir(rootPath, win)
+    }
 }
 
 app.on('window-all-closed', () => {
@@ -30,113 +41,70 @@ app.on('window-all-closed', () => {
     }
 })
 
-const openPath = async (filePath, sender) => {
-    app.addRecentDocument(filePath)
-    g_currentPath = filePath
-    store.set('last-path', filePath)
-    const cont = await fs.readFile( filePath )
-    g_srcLines = cont.toString().split('\n')
-    updateText(g_srcLines, sender, true)
+let g_contents = [
+];
+
+const loadDir = async (dirPath, sender) => {
+    // TODO:
+    // const files = await fs.readdir(dirPath)
+    const targetDir = path.join(dirPath, "2023", "01", "21")
+    const files = await fs.readdir(targetDir)
+    let contents = await Promise.all(
+        files
+        .filter( fname => fname.endsWith(".txt"))
+        .map( async fname => {
+            const full = path.join(targetDir, fname)
+            const date = new Date(parseInt(fname.substring(0, fname.length - 4)))
+            const content = await fs.readFile(full)
+            return {fullPath: full, date: date, content: content}
+        })
+    )
+    g_contents = contents;
+
+    updateText(contents, sender, true)
 }
 
 
-const openFileDialog = async (targetWin) => {
+const openDirDialog = async (onSuccess) => {
     const {canceled, filePaths} = await dialog.showOpenDialog({
-        properties: ['openFile'],
-        filters: [{ name: 'Text', extensions: ['txt'] }]
+        properties: ['openDirectory'],
     })
     if(!canceled) {
-        openPath( filePaths[0], targetWin )
+        store.set('root-path', filePaths[0])
+        onSuccess(filePaths[0])
     }
 }
-const reloadFile = (target) => {
-    if (g_currentPath != "")
-        openPath(g_currentPath, target)
+const reloadDir = async (target) => {
+    loadDir(store.get('root-path'), target)
 }
 
-class Paragraph {
-    constructor(begin, end, text) {
-        this.begin = begin
-        this.end = end
-        this.text = text
-    }
-}
 
-const linesToParas = (lines) => {
-    let begin = 0
-    let paras = []
-    let curlines = []
-    for( let [idx, line] of lines.entries())
-    {
-        if (line == "")
-        {
-            paras.push( new Paragraph(begin, idx, curlines.join('<br>\n')))
-            begin = idx+1
-            curlines = []
-        }
-        else
-        {
-            curlines.push(encode(line))
-        }
-    }
-    if (curlines.length != 0)
-    {
-        paras.push( new Paragraph(begin, lines.length, curlines.join('<br>\n')))
-    }
+const para2html = (json) => {
+    let encoded = encode(json.content)
+    let dtstr = json.date.getTime().toString()
 
-    return paras
-}
-
-const para2html = (para) => {
-    return `<div src-line-start=${para.begin} src-line-end=${para.end} class="box">
-              ${para.text}
+    return `<div class="box" dt="${dtstr}">
+              ${encoded}
+              <div class="content is-small">${json.date}</div>
             </div>`
 }
 
-const paras2html = (paras) => {
-    return paras.map( p => para2html(p) ).join("\n")
+const contents2html = (contents) => {
+    return contents.map( p => para2html(p) ).join("\n")
 }
 
-const updateText = (lines, targetWin, scroll) => {
-    const paras = linesToParas(lines)
-    const html = paras2html(paras)
+const updateText = (contents, targetWin, scroll) => {
+    const html = contents2html(contents)
     targetWin.send('update-content', html, scroll)
 }
 
-const g_pendingFile = []
-if (store.get('last-path') != null)
-{
-    g_pendingFile.push(store.get('last-path'))
-}
-// g_pendingFile.push("/Users/arinokazuma/Google ドライブ/DriveText/memo2.txt")
-
-const handleOpenFile = (path) => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        createWindow()
-    }
-    let target = BrowserWindow.getFocusedWindow()
-    if (target == null)
-        target = BrowserWindow.getAllWindows()[0]
-    openPath(path, target)
-}
-
-app.on('open-file', (event, path)=> {
-    if(path.endsWith(".txt")) {
-        event.preventDefault()
-        if (!app.isReady())
-        {
-            g_pendingFile.push(path)
-            return
-        }
-        handleOpenFile(path)
-    }
-})
-
 ipcMain.on('box-click', async (event, start, end)=> {
+    // NYI
     const src = g_srcLines.slice(start, end).join("\n")
     event.sender.send('start-edit', src, start, end)
 })
 ipcMain.on('submit', async (event, text, [start, end])=>{
+    // NYI
     const prev = g_srcLines
     g_srcLines = []
     for( let i = 0; i < start; i++) {
@@ -151,18 +119,38 @@ ipcMain.on('submit', async (event, text, [start, end])=>{
     updateText(g_srcLines, event.sender, false)
 })
 
+const zeroPad = (num) => {
+    if (num >= 10)
+        return num.toString()
+    return "0" + num.toString()
+}
+
+const ensureDir = async (dir) => {
+    try {
+        await fs.access( dir, constants.O_RDWR )
+    }
+    catch {
+        await fs.mkdir( dir )
+    }
+}
+
+const saveContent = async (dt, text)=>{
+    const targetDir = path.join(store.get('root-path'), dt.getFullYear().toString(), zeroPad(dt.getMonth()+1), zeroPad(dt.getDate()))
+    ensureDir(targetDir)
+
+    const fname = dt.getTime().toString() + ".txt"
+    const full = path.join(targetDir, fname)
+    await fs.writeFile(full, text)
+    return full
+}
+
 ipcMain.on('post', async (event, text)=> {
     const now = new Date()
-    const dtline = dateFormat(now, 'yyyy-mm-dd HH:MM')
-    if(g_srcLines.length > 1 && g_srcLines[g_srcLines.length-1] != "") {
-        g_srcLines.push("")
-    }
-    g_srcLines.push(dtline)
-    text.split('\n').forEach(line => g_srcLines.push(line))
+    const full = await saveContent(now, text)
+    const oneCont = {fullPath: full, date: now, content: text}
+    g_contents.push( oneCont )
+    updateText(g_contents, event.sender, true)
 
-    const src = g_srcLines.join('\n')
-    await fs.writeFile(g_currentPath, src)
-    updateText(g_srcLines, event.sender, true)
     event.sender.send('clear-post')
 })
 
@@ -174,21 +162,11 @@ const template = [
     label: 'File',
     submenu: [
         {
-            label: "Open",
+            label: "Open Root Dir",
             accelerator: 'CmdOrCtrl+O',
             click: async (item, focusedWindow)=> {
-                openFileDialog(focusedWindow)
+                openDirDialog((dir)=>{ loadDir(dir, focusedWindow) })
             }
-        },
-        {
-            label: "Open Recent",
-            role: "recentDocuments",
-            submenu: [
-                {
-                    label: "Clear Recent",
-                    role: "clearRecentDocuments"
-                }
-            ]
         },
         isMac ? { role: 'close' } : { role: 'quit' }
     ]
@@ -201,7 +179,7 @@ const template = [
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
           click: (item, focusedWindow)=> {
-              reloadFile( focusedWindow )
+              reloadDir( focusedWindow )
           }
       },
       { type: 'separator' },
@@ -217,21 +195,15 @@ const template = [
   }
 ]
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     const menu = Menu.buildFromTemplate(template)
     Menu.setApplicationMenu(menu)
 
-    createWindow()
+    await createWindow()
 
-    if (g_pendingFile.length != 0)
-    {
-        handleOpenFile(g_pendingFile[0])
-        g_pendingFile.length = 0
-    }
-
-    app.on('activate', () => {
+    app.on('activate', async () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow()
+            await createWindow()
         }
     })
 })
