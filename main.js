@@ -6,6 +6,9 @@ const Store = require('electron-store')
 
 const store = new Store()
 
+// const g_ITEM_LIMIT = 5
+const g_ITEM_LIMIT = 30
+
 // そのうち消す
 let g_srcLines = [];
 let g_currentPath = '';
@@ -44,19 +47,79 @@ app.on('window-all-closed', () => {
 let g_contents = [
 ];
 
+/*
+    patに従うファイル名（0パディングの数字）を数字的に新しい順にsortした配列として返す。
+*/
+const readDirs = async(dirPath, pat) => {
+    const dirs = await fs.readdir(dirPath)
+
+    return await Promise.all(
+        dirs
+        .filter(fname => fname.match(pat))
+        .filter( async fname => {
+            const full = path.join(dirPath, fname)
+            return (await fs.stat(full)).isDirectory()
+        } )
+        .sort( (a, b) => a < b ? 1 : -1)
+        )
+}
+
+/*
+  4桁の数字のdirを数字的にあたらしい順にsortした配列として返す。
+*/
+const readYears = async(dirPath) => {
+    return await readDirs( dirPath, /^[0-9][0-9][0-9][0-9]$/)
+}
+
+/*
+  2桁の数字のdirを数字的に新しい順にsortした配列として返す
+*/
+const readMonths = async(dirPath, yearstr) => {
+    const targetDir = path.join(dirPath, yearstr)
+    return await readDirs( targetDir, /^[0-9][0-9]$/)
+} 
+
+const readDays = async(dirPath, yearstr, monthstr) => {
+    const targetDir = path.join(dirPath, yearstr, monthstr)
+    return await readDirs( targetDir, /^[0-9][0-9]$/)
+}
+
+const readFilePathsAt = async(dirPath, yearstr, monthstr, daystr) => {
+    const targetPath = path.join(dirPath, yearstr, monthstr, daystr)
+    const files = await fs.readdir(targetPath)
+    return files
+        .filter( fname => fname.match(/^[0-9]+\.txt$/) )
+        .sort( (a, b) => a < b ? 1 : -1)
+        .map(fname => { return {fullPath: path.join(targetPath, fname), fname: fname} })
+}
+
+const readFilePaths = async(dirPath, count) => {
+    const years = await readYears(dirPath)
+    let ret = []
+    for (const year of years) {
+        const months = await readMonths(dirPath, year)
+        for (const month of months) {
+            const days = await readDays(dirPath, year, month)
+            for (const day of days) {
+                const cur = await readFilePathsAt(dirPath, year, month, day)
+                ret = ret.concat(cur)
+                if (ret.length > count)
+                    return ret
+            }
+        }
+    }
+    return ret
+}
+
 const loadDir = async (dirPath, sender) => {
-    // TODO:
-    // const files = await fs.readdir(dirPath)
-    const targetDir = path.join(dirPath, "2023", "01", "21")
-    const files = await fs.readdir(targetDir)
+    const paths = await readFilePaths(dirPath, g_ITEM_LIMIT)
+    paths.reverse()
     let contents = await Promise.all(
-        files
-        .filter( fname => fname.endsWith(".txt"))
-        .map( async fname => {
-            const full = path.join(targetDir, fname)
-            const date = new Date(parseInt(fname.substring(0, fname.length - 4)))
-            const content = await fs.readFile(full)
-            return {fullPath: full, date: date, content: content}
+        paths
+        .map( async pathpair => {
+            const date = new Date(parseInt(pathpair.fname.substring(0, pathpair.fname.length - 4)))
+            const content = await fs.readFile(pathpair.fullPath)
+            return {fullPath: pathpair.fullPath, date: date, content: content}
         })
     )
     g_contents = contents;
@@ -127,16 +190,16 @@ const zeroPad = (num) => {
 
 const ensureDir = async (dir) => {
     try {
-        await fs.access( dir, constants.O_RDWR )
+        await fs.access( dir, fs.constants.R_OK | fs.constants.W_OK )
     }
-    catch {
-        await fs.mkdir( dir )
+    catch(error) {
+        await fs.mkdir( dir, { recursive: true } )
     }
 }
 
 const saveContent = async (dt, text)=>{
     const targetDir = path.join(store.get('root-path'), dt.getFullYear().toString(), zeroPad(dt.getMonth()+1), zeroPad(dt.getDate()))
-    ensureDir(targetDir)
+    await ensureDir(targetDir)
 
     const fname = dt.getTime().toString() + ".txt"
     const full = path.join(targetDir, fname)
