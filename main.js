@@ -114,7 +114,7 @@ const loadDir = async (dirPath, sender) => {
         limited
         .map( async pathpair => {
             const date = new Date(parseInt(pathpair.fname.substring(0, pathpair.fname.length - 4)))
-            const content = await fs.readFile(pathpair.fullPath)
+            const content = await fs.readFile(pathpair.fullPath, { encoding: "utf8" })
             return {fullPath: pathpair.fullPath, date: date, content: content}
         })
     )
